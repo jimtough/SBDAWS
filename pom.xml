@@ -128,9 +128,7 @@
 					<execution>
 						<id>default</id>
 						<goals>
-							<!-- 
 							<goal>build</goal>
-							-->
 							<!-- The 'push' didn't work for me, so I push manually instead. 
 							<goal>push</goal> 
 							-->
