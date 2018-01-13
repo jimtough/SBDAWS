@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d{ISO8601}|%5level [%thread] %logger[%line] - %msg%n</pattern>
+		</encoder>
+	</appender>
+
+	<logger name="com.jimtough" level="DEBUG" />
+	<!--
+	Set these to DEBUG level if you want to see the low-level details of what the AWS SDK is doing.
+	Be warned that these two appenders are verbose!
+	-->
+	<logger name="org.apache.http" level="INFO" />
+	<logger name="software.amazon.awssdk" level="INFO" />
+
+	<root level="INFO">
+		<appender-ref ref="console" />
+	</root>
+	
+</configuration>

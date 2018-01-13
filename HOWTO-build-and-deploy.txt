@@ -1,0 +1,80 @@
+This is the tutorial that I followed to get started:
+	https://spring.io/guides/gs/spring-boot-docker/
+
+It recommends using this Maven plugin to build and deploy the Docker image to Docker Hub:
+	<plugin>
+		<groupId>com.spotify</groupId>
+		<artifactId>dockerfile-maven-plugin</artifactId>
+		<version>1.3.4</version>
+		...
+	</plugin>
+
+Unfortunately, things aren't working as advertised. It's very possible that I'm missing some
+configuration related to Docker. I'm going to deviate from the tutorial steps to workaround
+these issues and document what works for me here.
+
+------------------------------------------
+
+BUILDING THE APPLICATION AND PUSHING TO DOCKER HUB ACCOUNT
+
+Docker must be running on your local machine before you build, otherwise the Dockerfile
+plugin for Maven will fail during the build.
+
+If you are running on Windows 10, open the Settings option of Docker for Windows and
+ensure that the "Expose daemon on tcp://localhost:2375 without TLS" is enabled.
+If it isn't, then the Maven Dockerfile plugin will not be able to build an image.
+
+In the Maven pom.xml file, put your own Docker Hub username in the 'docker.image.prefix' property:
+	<properties>
+		<java.version>1.8</java.version>
+		<docker.image.prefix>jtough</docker.image.prefix>
+	</properties>
+
+To build a Docker image from the project code, do this:
+	mvn package
+	
+Use Docker CLI to initialize the connection to the Docker Hub server using your own credentials:
+	docker login -u <YOUR_USERNAME> -p <YOUR_PASSWORD>
+
+Use Docker CLI to push your image to your Docker Hub account:
+	docker push jtough/gs-spring-boot-docker:latest
+
+------------------------------------------
+
+RUNNING THE SPRING BOOT APPLICATION ON LOCALHOST WITHOUT DOCKER
+
+After building the Spring Boot application (by running 'mvn package'), you can launch the
+Spring Boot application via the following command: 
+	java -jar target/gs-spring-boot-docker-0.1.0.jar
+
+NOTE: 	If the artifactId or version values in the POM have been changed, then the JAR file will
+		have a different name. Adjust the command accordingly.
+
+After the application is launched, you can connect to it with a web browser at this URL:
+	http://localhost:8080/
+
+------------------------------------------
+
+RUNNING THE CONTAINERIZED SPRING BOOT APPLICATION ON LOCALHOST WITH DOCKER
+
+We built the Docker image already (by running 'mvn package' and triggering the Dockerfile plugin),
+so the image can be run locally in Docker. Execute the following command:
+
+	docker run -p 8080:8080 -t jtough/gs-spring-boot-docker
+
+If you use the command 'docker ps', you should see your image in the list of containers:
+
+	docker ps
+	
+On my machine, I got this output:
+
+	CONTAINER ID        IMAGE                          COMMAND                  CREATED              STATUS              PORTS                    NAMES
+	cb5e479619db        jtough/gs-spring-boot-docker   "sh -c 'java $JAVA..."   About a minute ago   Up About a minute   0.0.0.0:8080->8080/tcp   reverent_snyder
+
+You'll probably want to shut down this instance after you've done a connection test.
+To stop the instance, you'll need to copy the container id for your instance and use this command:
+
+	docker stop cb5e479619db
+
+If you execute the 'docker ps' command again, the instance you stopped will no longer appear.
+
