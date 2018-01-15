@@ -45,15 +45,15 @@ public class Application {
 	
 	@Autowired
 	private ConfigurationBean configurationBean;
+	
+	@Autowired
+	private AwsEnvironmentInterrogator interrogator;
 
 	// This is the only HTTP request handler defined in the application.
 	// It will return a kind-of-ugly HTML reply with details from the AWS SDK method call responses.
 	@RequestMapping("/")
 	public String home() {
 		LOGGER.info("Request received");
-		// Get some information about your AWS environment from the SDK
-		AwsEnvironmentInterrogator interrogator = new AwsEnvironmentInterrogator();
-		
 		StringBuilder sb = new StringBuilder();
 		sb.append("<html><body>");
 		
