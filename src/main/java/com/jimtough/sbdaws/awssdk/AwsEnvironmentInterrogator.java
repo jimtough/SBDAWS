@@ -6,7 +6,10 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import com.jimtough.sbdaws.ConfigurationBean;
 
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ecs.ECSClient;
@@ -37,6 +40,16 @@ public class AwsEnvironmentInterrogator {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(AwsEnvironmentInterrogator.class);
 
+	private final ConfigurationBean configurationBean;
+	
+	@Autowired
+	public AwsEnvironmentInterrogator(ConfigurationBean configurationBean) {
+		if (configurationBean == null) {
+			throw new IllegalArgumentException("configurationBean cannot be null");
+		}
+		this.configurationBean = configurationBean;
+	}
+	
 	/**
 	 * Retrieve details on the AWS IAM user that is being used by this application when calling the AWS SDK.
 	 * 
@@ -48,11 +61,10 @@ public class AwsEnvironmentInterrogator {
 	 */
 	public User getIAMUser() throws AwsSdkException {
 		try (
-			IAMClient iamClient = IAMClient.builder()
-				// The IAM users are considered "Global" in AWS, rather than region-specific
-				.region(Region.AWS_GLOBAL)
-				.build()
+			// This only seems to work if AWS_GLOBAL is used as the region
+			IAMClient iamClient = IAMClient.builder().region(Region.AWS_GLOBAL).build()
 		) {
+			// The IAM users are considered "Global" in AWS, rather than region-specific
 			GetUserResponse response = iamClient.getUser(GetUserRequest.builder().build());
 			User user = response.user();
 			LOGGER.debug("IAM user information retrieved successfully | username: [{}]", user.userName());
@@ -63,18 +75,14 @@ public class AwsEnvironmentInterrogator {
 	}
 
 	/**
-	 * Retrieves list of ECS clusters owned by this AWS account on the target AWS region
+	 * Retrieves list of ECS clusters owned by this AWS account
 	 * 
-	 * @param targetRegion Non-null
 	 * @return Non-null (possibly empty) list
 	 * @throws AwsSdkException Thrown if the SDK call throws an exception
 	 */
-	public List<Cluster> getECSClusterList(Region targetRegion) throws AwsSdkException {
-		if (targetRegion == null) {
-			throw new IllegalArgumentException("targetRegion cannot be null");
-		}
+	public List<Cluster> getECSClusterList() throws AwsSdkException {
 		try (
-			ECSClient ecsClient = ECSClient.builder().region(targetRegion).build();
+			ECSClient ecsClient = ECSClient.builder().region(this.configurationBean.getAwsTargetRegion()).build();
 		) {
 			ListClustersResponse response = ecsClient.listClusters(ListClustersRequest.builder().build());
 			List<String> clusterArns = response.clusterArns();
@@ -106,19 +114,16 @@ public class AwsEnvironmentInterrogator {
 	}
 	
 	/**
-	 * Retrieves list of S3 buckets owned by this AWS account on the target AWS region
+	 * Retrieves list of S3 buckets owned by this AWS account in any AWS region globally
 	 * 
-	 * @param targetRegion Non-null
 	 * @return Non-null (possibly empty) list
 	 * @throws AwsSdkException Thrown if the SDK call throws an exception
 	 */
-	public List<Bucket> getS3BucketList(Region targetRegion) throws AwsSdkException {
-		if (targetRegion == null) {
-			throw new IllegalArgumentException("targetRegion cannot be null");
-		}
+	public List<Bucket> getS3BucketList() throws AwsSdkException {
 		try (
-			S3Client s3Client = S3Client.builder().region(targetRegion).build();
+			S3Client s3Client = S3Client.builder().region(this.configurationBean.getAwsTargetRegion()).build();
 		) {
+			// The S3 buckets are considered "Global" in AWS when querying for the list
 			ListBucketsResponse response = s3Client.listBuckets(ListBucketsRequest.builder().build());
 
 			List<Bucket> myBucketList = response.buckets();

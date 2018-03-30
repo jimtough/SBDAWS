@@ -1,12 +1,9 @@
 package com.jimtough.sbdaws;
 
 import static org.junit.Assert.*;
-import static com.jimtough.sbdaws.ConfigurationBean.*;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
-import java.util.Properties;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -44,46 +41,20 @@ import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 public class AWSTest {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(AWSTest.class);
-
-	private static final String PROPERTIES_RESOURCE_FILE_NAME = "app.properties";
 	
-	private static final String PROPKEY_IAM_USER_ACCESS_KEY_ID = "sdk.user.aws.accessKeyId";
-	private static final String PROPKEY_IAM_USER_SECRET_KEY = "sdk.user.aws.secretAccessKey";
-	private static final String PROPKEY_TARGET_AWS_REGION_NAME = "aws.target.region";
-	
+	private static final PropertiesLoader PROPERTIES_LOADER = new PropertiesLoader();
 	private static Region targetAwsRegion;
 	
 	@BeforeClass
 	public static void oneTimeSetUp() throws IOException {
-		try (
-			InputStream is = Thread.currentThread().getContextClassLoader()
-					.getResourceAsStream(PROPERTIES_RESOURCE_FILE_NAME);
-		) {
-			assertNotNull("Unable to read properties file as classpath resource", is);
-			Properties props = new Properties();
-			props.load(is);
-			String iamUserAccessKeyId = props.getProperty(PROPKEY_IAM_USER_ACCESS_KEY_ID);
-			assertNotNull("Properties file missing key: [" + PROPKEY_IAM_USER_ACCESS_KEY_ID + "]", iamUserAccessKeyId);
-			LOGGER.debug("iamUserAccessKeyId: [{}]", iamUserAccessKeyId);
-			String iamUserSecretKey = props.getProperty(PROPKEY_IAM_USER_SECRET_KEY);
-			assertNotNull("Properties file missing key: [" + PROPKEY_IAM_USER_SECRET_KEY + "]", iamUserSecretKey);
-			// Uncomment this if you want your secret IAM access key logged
-			//LOGGER.debug("iamUserSecretKey: [{}]", iamUserSecretKey);
-			String targetAwsRegionName = props.getProperty(PROPKEY_TARGET_AWS_REGION_NAME);
-			assertNotNull("Properties file missing key: [" + PROPKEY_TARGET_AWS_REGION_NAME + "]", targetAwsRegionName);
-			targetAwsRegion = Region.of(targetAwsRegionName);
-			assertNotNull("Invalid target region name: [" + targetAwsRegionName + "]", targetAwsRegion);
-			LOGGER.debug("targetAwsRegion: [{}]", targetAwsRegion.value());
-			
-			System.setProperty(SYSPROPKEY_AWS_ACCESS_KEY_ID, iamUserAccessKeyId);
-			System.setProperty(SYSPROPKEY_AWS_SECRET_ACCESS_KEY, iamUserSecretKey);
-		}
+		PROPERTIES_LOADER.getAppProperties();
+		PROPERTIES_LOADER.setSystemPropertiesFromAppProperties();
+		targetAwsRegion = PROPERTIES_LOADER.getTargetRegion();
 	}
 
 	@AfterClass
 	public static void oneTimeTearDown() {
-		System.clearProperty(SYSPROPKEY_AWS_ACCESS_KEY_ID);
-		System.clearProperty(SYSPROPKEY_AWS_SECRET_ACCESS_KEY);
+		PROPERTIES_LOADER.clearSystemPropertiesSetFromAppProperties();
 	}
 
 	// No setup/cleanup required for individual tests right now
@@ -103,7 +74,8 @@ public class AWSTest {
 				.build();
 		) {
 			assertNotNull(s3Client);
-			
+			// NOTE: S3 buckets are a global resource. This query will return S3 buckets accessible to
+			//       this IAM user for all AWS regions.
 			ListBucketsResponse response = s3Client.listBuckets(ListBucketsRequest.builder().build());
 			
 			assertNotNull(response);

@@ -1,6 +1,8 @@
 package com.jimtough.sbdaws;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,12 +27,13 @@ public class Application {
 	
 	private final String EOL = System.lineSeparator();
 	private final String HTML_HELLO_MESSAGE = "<h2>Hello! This is the Spring Boot webapp that %s created.</h2>";
+
+	private final String HTML_REGION_HEADER = "<h3>This app is running in region [<b>%s</b>]</h3>";
 	
-	private final String HTML_IAM_USER_HEADER = "<h3>My IAM User: <b>%s</b></h3>";
+	private final String HTML_IAM_USER_HEADER = "<h3>My IAM User: [<b>%s</b>]</h3>";
 	private final String HTML_IAM_USER_DETAILS = 
 			"<ul>" + EOL +
-				"<li><b>arn:</b> %s</li>" + EOL +
-				"<li><b>creation date:</b> %s</li>" + EOL +
+				"<li><b>IAM user creation date:</b> %s</li>" + EOL +
 			"</ul>";
 	private final String HTML_IAM_USER_SDK_FAILURE = "<h3><b>SDK request for IAM user details failed!</b></h3>";
 	
@@ -60,13 +63,15 @@ public class Application {
 		// Start with a simple greeting that includes one of the values from the properties file.
 		// This should insert YOUR name if you edited the "maven-filter-values.properties" file.
 		sb.append(String.format(HTML_HELLO_MESSAGE, configurationBean.getMyName()));
+		
+		sb.append(String.format(HTML_REGION_HEADER, configurationBean.getAwsTargetRegion().value()));
 
 		// Add the IAM user details to the HTML response
 		try {
 			User user = interrogator.getIAMUser();
 			sb.append(String.format(HTML_IAM_USER_HEADER, user != null ? user.userName() : "UNKNOWN"));
 			if (user != null) {
-				sb.append(String.format(HTML_IAM_USER_DETAILS, user.arn(), user.createDate()));
+				sb.append(String.format(HTML_IAM_USER_DETAILS, user.createDate()));
 			}
 		} catch (AwsSdkException e) {
 			sb.append(HTML_IAM_USER_SDK_FAILURE);
@@ -74,7 +79,7 @@ public class Application {
 
 		// Add the ECS cluster details to the HTML response
 		try {
-			List<Cluster> clusterList = interrogator.getECSClusterList(configurationBean.getAwsTargetRegion());
+			List<Cluster> clusterList = interrogator.getECSClusterList();
 			sb.append(String.format(HTML_ECS_CLUSTER_HEADER, clusterList.size()));
 			if (!clusterList.isEmpty()) {
 				sb.append("<ul>").append(EOL);
@@ -94,7 +99,7 @@ public class Application {
 
 		// Add the S3 bucket details to the HTML response
 		try {
-			List<Bucket> bucketList = interrogator.getS3BucketList(configurationBean.getAwsTargetRegion());
+			List<Bucket> bucketList = interrogator.getS3BucketList();
 			sb.append(String.format(HTML_S3_BUCKETS_HEADER, bucketList.size()));
 			if (!bucketList.isEmpty()) {
 				sb.append("<ul>").append(EOL);
@@ -108,9 +113,29 @@ public class Application {
 		}
 		
 		sb.append("</body></html>");
+		
+		touchMe();
+		
 		return sb.toString();
 	}
 
+	public void touchMe() {
+		boolean isWindows = System.getProperty("os.name") .toLowerCase().contains("windows");
+		if (isWindows) {
+			LOGGER.info("This is Windows?!?");
+		} else {
+			LOGGER.info("Probably not Windows");
+		}
+		try {
+			Process process = Runtime.getRuntime().exec(String.format("touch /datafiles/touchme.txt"));
+			process.waitFor(10, TimeUnit.SECONDS);
+			LOGGER.info("touched");
+		} catch (IOException e) {
+			LOGGER.error("Unable to 'touch' file", e);
+		} catch (InterruptedException ignored) {
+		}
+	}
+	
 	public static void main(String[] args) {
 		SpringApplication.run(Application.class, args);
 	}
