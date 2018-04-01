@@ -1,8 +1,15 @@
 package com.jimtough.sbdaws;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +31,11 @@ import software.amazon.awssdk.services.s3.model.Bucket;
 public class Application {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Application.class);
+
+	private static final String AWS_EFS_VOLUME_MOUNT_PATH_STRING = "/datafiles";
+	private static final Path AWS_EFS_VOLUME_MOUNT_PATH = Paths.get("/datafiles");
+	private static final String FILE_TO_TOUCH_FULL_PATH_STRING = AWS_EFS_VOLUME_MOUNT_PATH_STRING + "/touchme.txt";
+	//private static final DateTimeFormatter DTF = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 	
 	private final String EOL = System.lineSeparator();
 	private final String HTML_HELLO_MESSAGE = "<h2>Hello! This is the Spring Boot webapp that %s created.</h2>";
@@ -45,6 +57,15 @@ public class Application {
 	private final String HTML_S3_BUCKETS_HEADER = "<h3>My S3 buckets (%d in total)</h3>";
 	private final String HTML_S3_BUCKET_DETAILS = "<li><b>name:</b> %s | <b>creation date:</b> %s</li>";
 	private final String HTML_S3_BUCKETS_SDK_FAILURE = "<h3><b>SDK request for S3 buckets list failed!</b></h3>";
+
+	private final String HTML_EFS_VOLUME_FILES_HEADER = "<h3>Files in my EFS volume (%d in total)</h3>";
+	private final String HTML_EFS_VOLUME_FILE_DETAILS = "<li>"
+			+ "<b>file path:</b> [%s] | "
+			+ "<b>created: </b> %s | "
+			+ "<b>last modified:</b> %s | "
+			+ "<b>size: </b> %s | "
+			+ "<b>is directory?: </b> %b"
+			+ "</li>";
 	
 	@Autowired
 	private ConfigurationBean configurationBean;
@@ -55,8 +76,10 @@ public class Application {
 	// This is the only HTTP request handler defined in the application.
 	// It will return a kind-of-ugly HTML reply with details from the AWS SDK method call responses.
 	@RequestMapping("/")
-	public String home() {
+	public String home() throws Exception {
 		LOGGER.info("Request received");
+		touchMe();
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("<html><body>");
 		
@@ -112,27 +135,61 @@ public class Application {
 			sb.append(HTML_S3_BUCKETS_SDK_FAILURE);
 		}
 		
-		sb.append("</body></html>");
+		List<Path> efsVolumeMountDirContents = listFilesInEFSVolumeMountDir();
+		sb.append(String.format(HTML_EFS_VOLUME_FILES_HEADER, efsVolumeMountDirContents.size()));
+		if (!efsVolumeMountDirContents.isEmpty()) {
+			sb.append("<ul>").append(EOL);
+			for (Path p : efsVolumeMountDirContents) {
+				sb.append(String.format(HTML_EFS_VOLUME_FILE_DETAILS, 
+						p.toString(),
+						Files.getAttribute(p, "creationTime", LinkOption.NOFOLLOW_LINKS),
+						Files.getAttribute(p, "lastModifiedTime"),
+						Files.getAttribute(p, "size"),
+						Files.getAttribute(p, "isDirectory")))
+					.append(EOL);
+			}
+			sb.append("</ul>").append(EOL);
+		}
+
+		sb.append("<p>Visit me here: <a href='http://blog.jimtough.com'>http://blog.jimtough.com</a></p>");
 		
-		touchMe();
+		sb.append("</body></html>");
 		
 		return sb.toString();
 	}
 
 	public void touchMe() {
-		boolean isWindows = System.getProperty("os.name") .toLowerCase().contains("windows");
+		boolean isWindows = System.getProperty("os.name").toLowerCase().contains("windows");
 		if (isWindows) {
-			LOGGER.info("This is Windows?!?");
+			LOGGER.warn("This is Windows?!?");
 		} else {
-			LOGGER.info("Probably not Windows");
+			LOGGER.debug("System property 'os.name': [{}]", System.getProperty("os.name"));
 		}
 		try {
-			Process process = Runtime.getRuntime().exec(String.format("touch /datafiles/touchme.txt"));
+			String unixTouchCommand = "touch -a -m " + FILE_TO_TOUCH_FULL_PATH_STRING;
+			LOGGER.debug("Executing O/S command: [{}]", unixTouchCommand);
+			Process process = Runtime.getRuntime().exec(String.format(unixTouchCommand));
 			process.waitFor(10, TimeUnit.SECONDS);
-			LOGGER.info("touched");
+			LOGGER.debug("Command executed");
 		} catch (IOException e) {
 			LOGGER.error("Unable to 'touch' file", e);
-		} catch (InterruptedException ignored) {
+		} catch (InterruptedException ie) {
+			LOGGER.warn("Interrupted while touching...");
+		}
+	}
+
+	public List<Path> listFilesInEFSVolumeMountDir() {
+		try (Stream<Path> pathStream = Files.walk(AWS_EFS_VOLUME_MOUNT_PATH)) {
+			List<Path> contentsOfEFSVolumeMountDir = new ArrayList<>();
+			// Apply some stream operations
+			pathStream
+				.map(p->p.toAbsolutePath())
+				.sorted()
+				.forEach(p -> contentsOfEFSVolumeMountDir.add(p));
+			return contentsOfEFSVolumeMountDir;
+		} catch (IOException e) {
+			LOGGER.error("Exception while walking dir tree from root dir: [{}]", AWS_EFS_VOLUME_MOUNT_PATH_STRING, e);
+			return Collections.emptyList();
 		}
 	}
 	

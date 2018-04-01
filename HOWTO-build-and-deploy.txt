@@ -78,3 +78,8 @@ To stop the instance, you'll need to copy the container id for your instance and
 
 If you execute the 'docker ps' command again, the instance you stopped will no longer appear.
 
+------------------------------------------
+
+RUNNING THE CONTAINERIZED SPRING BOOT APPLICATION ON LOCALHOST WITH DOCKER AND MOUNTING A VOLUME
+
+docker run --rm -it -p 80:80 --name mytest --mount type=bind,source="e:\DOCKER_DATA_FILES",target="/datafiles" jtough/sbdaws:0.1.0
