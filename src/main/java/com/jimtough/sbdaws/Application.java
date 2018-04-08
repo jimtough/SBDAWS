@@ -35,7 +35,6 @@ public class Application {
 	private static final String AWS_EFS_VOLUME_MOUNT_PATH_STRING = "/datafiles";
 	private static final Path AWS_EFS_VOLUME_MOUNT_PATH = Paths.get("/datafiles");
 	private static final String FILE_TO_TOUCH_FULL_PATH_STRING = AWS_EFS_VOLUME_MOUNT_PATH_STRING + "/touchme.txt";
-	//private static final DateTimeFormatter DTF = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 	
 	private final String EOL = System.lineSeparator();
 	private final String HTML_HELLO_MESSAGE = "<h2>Hello! This is the Spring Boot webapp that %s created.</h2>";
@@ -151,7 +150,7 @@ public class Application {
 			sb.append("</ul>").append(EOL);
 		}
 
-		sb.append("<p>Visit me here: <a href='http://blog.jimtough.com'>http://blog.jimtough.com</a></p>");
+		sb.append("<br/><p>Visit me here: <a href='http://blog.jimtough.com'>http://blog.jimtough.com</a></p>");
 		
 		sb.append("</body></html>");
 		
